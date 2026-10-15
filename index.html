@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strategos — Geospatial Intelligence</title>
+  <meta name="description" content="Strategos: Advanced geospatial intelligence and map analysis platform." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Boot Overlay -->
+    <div id="boot-overlay" class="boot-overlay">
+      <div class="boot-inner">
+        <svg class="boot-mark" viewBox="0 0 48 48" fill="none">
+          <path d="M24 4 A20 20 0 0 1 44 24" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          <path d="M24 44 A20 20 0 0 1 4 24" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="24" y1="10" x2="24" y2="18" stroke="currentColor" stroke-width="0.8"/>
+          <line x1="24" y1="30" x2="24" y2="38" stroke="currentColor" stroke-width="0.8"/>
+          <line x1="10" y1="24" x2="18" y2="24" stroke="currentColor" stroke-width="0.8"/>
+          <line x1="30" y1="24" x2="38" y2="24" stroke="currentColor" stroke-width="0.8"/>
+          <circle cx="24" cy="24" r="2.5" fill="currentColor"/>
+        </svg>
+        <div class="boot-text">STRATEGOS</div>
+        <div class="boot-bar"><div class="boot-bar-fill" id="boot-bar-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <span>Settings</span>
+          <button id="settings-close" class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+          <label class="field-label">Computer Vision API Key</label>
+          <p class="field-hint">Required for Area Analysis (e.g. Roboflow). Enter your API key below.</p>
+          <input id="api-key-input" type="password" class="field-input" placeholder="Enter your CV API key..." />
+          <label class="field-label" style="margin-top:12px;">Model Endpoint</label>
+          <input id="api-model-input" type="text" class="field-input" placeholder="e.g. aerial-vehicles-and-buildings/1" style="margin-bottom:6px;"/>
+          <button id="save-api-key" class="btn-primary">Save Settings</button>
+          <div id="api-key-status" class="field-status"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="app hidden">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-brand">
+          <svg class="brand-mark" viewBox="0 0 48 48" fill="none">
+            <path d="M24 4 A20 20 0 0 1 44 24" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M24 44 A20 20 0 0 1 4 24" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <line x1="24" y1="10" x2="24" y2="18" stroke="currentColor" stroke-width="0.8"/>
+            <line x1="24" y1="30" x2="24" y2="38" stroke="currentColor" stroke-width="0.8"/>
+            <line x1="10" y1="24" x2="18" y2="24" stroke="currentColor" stroke-width="0.8"/>
+            <line x1="30" y1="24" x2="38" y2="24" stroke="currentColor" stroke-width="0.8"/>
+            <circle cx="24" cy="24" r="2.5" fill="currentColor"/>
+          </svg>
+          <span class="brand-name">Strategos</span>
+        </div>
+
+        <div class="topbar-search">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input id="search-input" type="text" placeholder="Search location or coordinates..." />
+          <kbd class="search-kbd">/</kbd>
+        </div>
+
+        <div class="topbar-data">
+          <div class="data-cell">
+            <span class="data-dim" id="cursor-lat">—</span>
+            <span class="data-sep">×</span>
+            <span class="data-dim" id="cursor-lng">—</span>
+          </div>
+          <span class="data-divider"></span>
+          <div class="data-cell">
+            <span class="data-label">Z</span>
+            <span class="data-mono" id="zoom-level">3</span>
+          </div>
+          <span class="data-divider"></span>
+          <span class="data-mono data-time" id="time-display">00:00:00</span>
+        </div>
+
+        <div class="topbar-actions">
+          <button id="btn-settings" class="icon-btn" title="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Workspace -->
+      <div class="workspace">
+        <!-- Left Panel -->
+        <aside class="panel panel-left" id="panel-left">
+          <!-- Layers -->
+          <div class="panel-group">
+            <div class="group-title">Layers</div>
+            <div class="layer-list" id="layer-list">
+              <button class="layer-opt active" data-layer="streets">Streets</button>
+              <button class="layer-opt" data-layer="satellite">Satellite</button>
+              <button class="layer-opt" data-layer="terrain">Terrain</button>
+              <button class="layer-opt" data-layer="dark">Dark</button>
+            </div>
+          </div>
+
+          <!-- Tools -->
+          <div class="panel-group">
+            <div class="group-title">Tools</div>
+            <div class="tool-list" id="tool-list">
+              <button class="tool-opt" data-tool="measure" title="1">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3 17L17 3M7 17v-4M11 17v-2M15 17v-6"/></svg>
+                Distance
+              </button>
+              <button class="tool-opt" data-tool="area" title="2">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><polygon points="4,16 10,4 16,16"/></svg>
+                Area
+              </button>
+              <button class="tool-opt" data-tool="marker" title="3">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M10 2a5 5 0 015 5c0 4-5 9-5 9S5 11 5 7a5 5 0 015-5z"/><circle cx="10" cy="7" r="1.5" fill="currentColor"/></svg>
+                Marker
+              </button>
+              <button class="tool-opt" data-tool="identify" title="4">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="10" cy="10" r="7"/><path d="M10 6v4h4"/></svg>
+                Identify
+              </button>
+              <button class="tool-opt" data-tool="radius" title="5">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="10" cy="10" r="7"/><path d="M10 10h7"/></svg>
+                Radius
+              </button>
+              <button class="tool-opt" data-tool="grid" title="6">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 2h16v16H2zM2 7h16M2 12h16M7 2v16M12 2v16"/></svg>
+                Grid
+              </button>
+            </div>
+          </div>
+
+          <!-- Area Analysis -->
+          <div class="panel-group">
+            <div class="group-title">Intelligence</div>
+            <button id="btn-analyze-area" class="tool-opt tool-primary" data-tool="analyze">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="14" height="14" rx="1" stroke-dasharray="3,2"/><circle cx="10" cy="10" r="3"/><path d="M10 3v2M10 15v2M3 10h2M15 10h2"/></svg>
+              Analyze Area
+            </button>
+            <p class="tool-hint">Select a region on satellite view. AI identifies buildings, vehicles, vegetation, and infrastructure.</p>
+          </div>
+
+          <!-- Markers -->
+          <div class="panel-group">
+            <div class="group-title">
+              Markers
+              <button id="clear-markers" class="group-action">Clear</button>
+            </div>
+            <div id="markers-list" class="item-list">
+              <div class="empty-hint">No markers placed</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Map -->
+        <main class="map-area">
+          <div id="map" class="map"></div>
+
+          <!-- Map Controls -->
+          <div class="map-controls" id="map-controls">
+            <button id="btn-zoom-in" class="map-btn" title="Zoom in">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4v12M4 10h12"/></svg>
+            </button>
+            <button id="btn-zoom-out" class="map-btn" title="Zoom out">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 10h12"/></svg>
+            </button>
+            <button id="btn-recenter" class="map-btn" title="Reset view">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3"/></svg>
+            </button>
+          </div>
+
+          <!-- Active Tool Badge -->
+          <div id="tool-badge" class="tool-badge hidden">
+            <span class="badge-dot"></span>
+            <span id="tool-badge-name">MEASURE</span>
+            <span class="badge-hint">Click map · Esc to cancel</span>
+          </div>
+
+          <!-- Scale -->
+          <div class="scale-indicator">
+            <span id="scale-text" class="scale-text">0 km</span>
+            <div class="scale-rule"></div>
+          </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="panel panel-right" id="panel-right">
+          <!-- Analysis Results -->
+          <div class="panel-group" id="analysis-group">
+            <div class="group-title">Analysis</div>
+            <div id="analysis-results" class="analysis-container">
+              <div class="empty-hint">Select an area to analyze</div>
+            </div>
+          </div>
+
+          <!-- Intel Feed -->
+          <div class="panel-group">
+            <div class="group-title">Intel</div>
+            <div id="intel-feed" class="intel-container">
+              <div class="empty-hint">Click map or use Identify tool</div>
+            </div>
+          </div>
+
+          <!-- View -->
+          <div class="panel-group">
+            <div class="group-title">View</div>
+            <div class="view-grid">
+              <div class="vg-row"><span class="vg-k">Center</span><span class="vg-v" id="v-center">—</span></div>
+              <div class="vg-row"><span class="vg-k">Bounds NE</span><span class="vg-v" id="v-ne">—</span></div>
+              <div class="vg-row"><span class="vg-k">Bounds SW</span><span class="vg-v" id="v-sw">—</span></div>
+              <div class="vg-row"><span class="vg-k">Scale</span><span class="vg-v" id="v-scale">—</span></div>
+              <div class="vg-row"><span class="vg-k">Viewport</span><span class="vg-v" id="v-viewport">—</span></div>
+            </div>
+          </div>
+
+          <!-- Measurements -->
+          <div class="panel-group">
+            <div class="group-title">
+              Measurements
+              <button id="clear-measurements" class="group-action">Clear</button>
+            </div>
+            <div id="measurements-list" class="item-list">
+              <div class="empty-hint">No measurements</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Status Bar -->
+      <footer class="statusbar">
+        <span class="sb-item"><span class="sb-dim">Layer</span> <span id="sb-layer">OpenStreetMap</span></span>
+        <span class="sb-dot">·</span>
+        <span class="sb-item"><span class="sb-dim">Objects</span> <span id="sb-objects">0</span></span>
+        <span class="sb-spacer"></span>
+        <span id="sb-status" class="sb-status">Ready</span>
+        <span class="sb-spacer"></span>
+        <span class="sb-item sb-dim" id="sb-date"></span>
+      </footer>
+    </div>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
